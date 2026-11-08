@@ -11,6 +11,24 @@ It replaces `dsh-plugin-subscriptions`. Both register the `codex` adapter, so en
 - **Composer gauge.** The current model's provider, plus any you pinned, shows under the composer.
 - **API key usage.** Z.ai, Ollama Cloud and Kimi Code usage is read with an API key you paste on the Usage page. These providers are usage-only. The plugin does not route requests to them.
 
+## Screenshots
+
+Usage page in Settings, with pace forecasts and pins:
+
+![Settings, Usage page](https://raw.githubusercontent.com/P4rthPat3l/dsh-plugin-subscription-usage/main/docs/screenshots/settings-usage.png)
+
+Models page, where each subscription is a provider row:
+
+![Settings, Models page](https://raw.githubusercontent.com/P4rthPat3l/dsh-plugin-subscription-usage/main/docs/screenshots/settings-models.png)
+
+Usage pop-up in the composer on a new session:
+
+![Composer usage pop-up on a new session](https://raw.githubusercontent.com/P4rthPat3l/dsh-plugin-subscription-usage/main/docs/screenshots/composer-popup.png)
+
+The same pop-up inside a chat:
+
+![Composer usage pop-up in a chat](https://raw.githubusercontent.com/P4rthPat3l/dsh-plugin-subscription-usage/main/docs/screenshots/usage-in-chat.png)
+
 ## Install
 
 ```bash
