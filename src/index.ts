@@ -20,6 +20,8 @@ import type {
 // Type-only: activates the `ctx.tools` Context merge for the inject block.
 import type {} from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-agent'
+// Type-only: activates the `ctx.systemPrompt` Context merge.
+import type {} from '@deepseek-ai/dsh-system-prompt'
 // Type-only: activates the `ctx.web` Context merge for optional registration.
 import type {} from '@deepseek-ai/dsh-web'
 // Type-only: `ctx.fiber.entry` (Loader) and `ctx.settings` augmentations.
@@ -88,6 +90,8 @@ import { AccountPreferencesAdapter, accountAllowsPool, accountModelId, parseAcco
 export type { AccountPreferences, ProviderPreferences } from './provider-settings.js'
 import { ImageAccountPool } from './providers/image-pool.js'
 import { registerWithAlias } from './tools/registration.js'
+import { createUsageTool, USAGE_PROMPT_REMINDER } from './tools/usage.js'
+import type { UsageTarget } from './tools/usage.js'
 import { buildAccountPools, poolKey } from './providers/pool-family.js'
 import type { PoolDefinition, PoolMemberRef } from './providers/pool-family.js'
 import { PoolHealthRegistry } from './providers/pool-health.js'
@@ -1373,7 +1377,7 @@ export function apply(ctx: Context, config: Config): void {
     },
     account => usageTracker.invalidate('codex', account),
   )
-  registerAuthRpc(ctx, new SubscriptionsAuthController(
+  const authController = new SubscriptionsAuthController(
     flows, deviceFlows, authChanged, resolveAttachments, usageFetchers, undefined, usageTracker, config.antigravity,
     {
       ...providers.includes('codex') ? {
@@ -1387,7 +1391,8 @@ export function apply(ctx: Context, config: Config): void {
     (provider, account) => poolHealth?.clear(provider, account),
     usage,
     keyUsage,
-  ), speed, {
+  )
+  registerAuthRpc(ctx, authController, speed, {
     get: () => proxyGetConfig(),
     set: input => proxySetConfig(input),
     test: payload => proxyTestConnection(payload.url, payload.proxy),
@@ -1515,6 +1520,26 @@ export function apply(ctx: Context, config: Config): void {
     })
   }
 
+  // `subscription_usage` lets the agent check limits before heavy work. The
+  // reminder section below points the model at it.
+  const usageTargets = async (): Promise<UsageTarget[]> => {
+    const targets: UsageTarget[] = []
+    for (const provider of PROVIDER_IDS) {
+      if (!authController.hasUsage(provider)) continue
+      const status = await authController.status(provider).catch(() => undefined)
+      const account = status?.accounts.find(entry => entry.key === status.servingAccount)
+        ?? status?.accounts.find(entry => entry.isDefault) ?? status?.accounts[0]
+      if (account !== undefined) targets.push({ provider, key: account.key, label: account.account ?? account.key })
+    }
+    for (const view of await authController.keyProviders()) {
+      if (view.configured) targets.push({ provider: view.id, key: KEY_ACCOUNT, label: view.name })
+    }
+    return targets
+  }
+  ctx.inject(['systemPrompt'], promptCtx => {
+    promptCtx.systemPrompt.section({ name: 'subscription-usage:reminder', order: 5000, text: USAGE_PROMPT_REMINDER })
+  })
+
   // `tools` is optional (headless/minimal compositions may not mount it), so
   // registration waits for the service instead of injecting it at load.
   // x_search and video_generate follow the grok provider; image_generate
@@ -1530,6 +1555,13 @@ export function apply(ctx: Context, config: Config): void {
         if (result !== undefined) registeredNames.set(definition.name, result.name)
       }
     }
+    const usageResult = registerWithAlias(toolsCtx.tools, createUsageTool({
+      source: {
+        targets: usageTargets,
+        read: (target, refresh, signal) => authController.usage(target.provider as UsageProviderId, target.key, signal, refresh, refresh ? 'manual' : 'poll'),
+      },
+    }))
+    if (usageResult !== undefined) registeredNames.set('subscription_usage', usageResult.name)
     if (codexTokens !== undefined || grokTokens !== undefined) {
       const result = registerWithAlias(toolsCtx.tools, createImageGenerateTool({
         imagePool,

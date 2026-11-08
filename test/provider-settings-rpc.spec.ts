@@ -93,7 +93,7 @@ test('provider settings RPC edits picker visibility without losing the editor ca
     assert.equal(llm.listProviders().find(provider => provider.id === 'grok')?.name, 'MiniMax')
     assert.deepEqual(old, [])
     assert.deepEqual(create(Date.now() + 1000).sort(), ['image_generate', 'video_generate'])
-    assert.deepEqual([...tools].sort(), ['image_generate', 'video_generate', 'x_search'])
+    assert.deepEqual([...tools].sort(), ['image_generate', 'subscription_usage', 'video_generate', 'x_search'])
     assert.equal((await call('setProviderSettings', { provider: 'codex', settings: {} })).ok, true)
     assert.equal(llm.listProviders().find(provider => provider.id === 'codex')?.name, 'ChatGPT (Codex)')
     assert.equal((await adapters.get('codex')!.listModels('codex')).length, 2)

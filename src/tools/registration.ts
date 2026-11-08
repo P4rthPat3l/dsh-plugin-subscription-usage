@@ -5,6 +5,7 @@ export const TOOL_ALIASES = {
   x_search: 'dsh_subscriptions_x_search',
   video_generate: 'dsh_subscriptions_video_generate',
   image_generate: 'dsh_subscriptions_image_generate',
+  subscription_usage: 'dsh_subscriptions_subscription_usage',
 } as const
 
 export interface ToolRegistry {

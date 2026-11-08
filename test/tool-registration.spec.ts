@@ -42,3 +42,9 @@ test('registerWithAlias skips and warns when canonical and alias collide', () =>
   assert.match(warnings[0]!, /x_search/)
   assert.deepEqual([...tools.names].sort(), ['dsh_subscriptions_x_search', 'x_search'])
 })
+
+test('AC-008: subscription_usage registers under its alias when the name is taken', () => {
+  const tools = registry(['subscription_usage'])
+  const result = registerWithAlias(tools, definition('subscription_usage'))
+  assert.equal(result?.name, TOOL_ALIASES.subscription_usage)
+})
