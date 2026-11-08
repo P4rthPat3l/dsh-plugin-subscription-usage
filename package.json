@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "ChatGPT (Codex), Claude, Grok, GitHub Copilot and Google Antigravity subscriptions as rows on the DSH Models page, with pace-aware usage meters",
   "license": "MIT",
+  "author": "Parth Patel <pp542004@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/P4rthPat3l/dsh-plugin-subscription-usage.git"
+  },
+  "homepage": "https://github.com/P4rthPat3l/dsh-plugin-subscription-usage#readme",
+  "bugs": {
+    "url": "https://github.com/P4rthPat3l/dsh-plugin-subscription-usage/issues"
+  },
   "keywords": [
     "deepseek-harness",
     "dsh-plugin",
