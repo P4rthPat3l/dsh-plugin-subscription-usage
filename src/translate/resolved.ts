@@ -175,7 +175,7 @@ export async function resolveImages(
     : block.type === 'tool-result' && block.content.some(hasRetainedImage)
   if (attachments === undefined && messages.some(message => message.content.some(hasRetainedImage))) {
     throw new LlmError(
-      'dsh-subscription-models: the request carries an image but no attachments service is mounted; '
+      'dsh-plugin-subscription-usage: the request carries an image but no attachments service is mounted; '
       + 'image input requires the harness attachment store',
       'UNSUPPORTED',
     )

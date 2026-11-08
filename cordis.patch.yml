@@ -2,4 +2,4 @@
 # Client half is discovered from `dsh.client` in package.json.
 - insert:
     - id: subscription-models
-      name: dsh-subscription-models
+      name: dsh-plugin-subscription-usage

@@ -1,4 +1,4 @@
-# dsh-subscription-models
+# dsh-plugin-subscription-usage
 
 A DSH 0.2.2 Cordis plugin. It routes ChatGPT (Codex), Claude, Grok, GitHub Copilot and Google Antigravity subscriptions as LLM providers. It shows them on Settings, Models, with usage meters.
 

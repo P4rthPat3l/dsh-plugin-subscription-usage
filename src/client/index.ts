@@ -59,14 +59,14 @@ const hasMethod = (value: unknown, name: string): boolean =>
   typeof value === 'object' && value !== null && name in value && typeof (value as Record<string, unknown>)[name] === 'function'
 
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(LOCALE_NS, { en, zh }), 'dsh-subscription-models: copy')
+  ctx.effect(() => ctx.locale.register(LOCALE_NS, { en, zh }), 'dsh-plugin-subscription-usage: copy')
   ctx.effect(() => {
     const style = document.createElement('style')
-    style.dataset.plugin = 'dsh-subscription-models'
+    style.dataset.plugin = 'dsh-plugin-subscription-usage'
     style.textContent = css
     document.head.appendChild(style)
     return () => { style.remove() }
-  }, 'dsh-subscription-models: stylesheet')
+  }, 'dsh-plugin-subscription-usage: stylesheet')
 
   // In the browser the `connection` key holds the full client handle.
   const connection = ctx.get('connection') as unknown as ConnectionHandle
@@ -78,7 +78,7 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['configForms'], scope => {
     const forms: unknown = scope.get('configForms')
     if (!hasMethod(forms, 'get')) return
-    scope.effect(() => prefs.bind((forms as ConfigFormsLike).get(ENTRY_ID)), 'dsh-subscription-models: usage preferences')
+    scope.effect(() => prefs.bind((forms as ConfigFormsLike).get(ENTRY_ID)), 'dsh-plugin-subscription-usage: usage preferences')
   })
 
   ctx.slots.inject('settings.models.provider-card', () => ctx.slots.register({
@@ -156,6 +156,6 @@ export function apply(ctx: ClientContext): void {
           await createSpeedSetter(connection, session.sessionId, models)(option.id === 'fast' ? 'fast' : 'standard')
         },
       },
-    }), 'dsh-subscription-models: /fast')
+    }), 'dsh-plugin-subscription-usage: /fast')
   })
 }

@@ -1,5 +1,5 @@
 /**
- * dsh-subscription-models: register OAuth-subscription LLM providers
+ * dsh-plugin-subscription-usage: register OAuth-subscription LLM providers
  * (ChatGPT/Codex, Claude, Grok, GitHub Copilot, Google Antigravity) on `ctx.llm`, and expose the `/subscriptions-auth`
  * RPC channel the web Settings page uses to run the logins. The token store
  * lives at `~/.dsh/plugins/subscriptions/auth.json`; the channel registers only when
@@ -157,7 +157,7 @@ export type { RateLimitConfig, RateLimitWait } from './providers/rate-limit.js'
 export type { ProviderStatus } from './auth/rpc.js'
 export type { AntigravitySession, ClaudeSession, CodexSession, CopilotSession, GrokSession, ProviderId } from './auth/store.js'
 
-export const name = 'dsh-subscription-models'
+export const name = 'dsh-plugin-subscription-usage'
 export const inject = ['llm']
 
 /** Default maximum provider idle time while one stream read is outstanding. */
@@ -773,7 +773,7 @@ export function apply(ctx: Context, config: Config): void {
   // refresh) must survive links where one TCP handshake exceeds Node's 250ms
   // Happy Eyeballs attempt budget; see MIN_CONNECT_ATTEMPT_TIMEOUT_MS.
   const previousAttemptTimeout = ensureConnectAttemptTimeout()
-  ctx.effect(() => () => { restoreConnectAttemptTimeout(previousAttemptTimeout) }, 'dsh-subscription-models: connect attempt timeout')
+  ctx.effect(() => () => { restoreConnectAttemptTimeout(previousAttemptTimeout) }, 'dsh-plugin-subscription-usage: connect attempt timeout')
   const preferences = new ProviderSettingsStore()
   const codexVersion = new CodexClientVersionCache()
   const claudeVersion = new ClaudeCliVersionCache()
@@ -799,7 +799,7 @@ export function apply(ctx: Context, config: Config): void {
   const flows = new OAuthFlowManager()
   const deviceFlows = new DeviceFlowManager()
   const onWarn = (message: string): void => {
-    ctx.logger.warn(`dsh-subscription-models: ${message}`)
+    ctx.logger.warn(`dsh-plugin-subscription-usage: ${message}`)
   }
   // Optional: resolves ImageBlock references to bytes for vision-capable
   // models. Resolved per request — the attachments service may start after
@@ -878,7 +878,7 @@ export function apply(ctx: Context, config: Config): void {
   // fetch during member selection, and a hanging usage endpoint must
   // degrade the strategy (zero urgency), not stall the user's request.
   const keyUsage = new KeyUsage(new KeyStore(), proxiedFetch, id => { usageTracker.invalidate(id, KEY_ACCOUNT); usage.revision++ })
-  void keyUsage.load().catch(error => { ctx.logger.warn(`dsh-subscription-models: usage keys: ${error instanceof Error ? error.message : String(error)}`) })
+  void keyUsage.load().catch(error => { ctx.logger.warn(`dsh-plugin-subscription-usage: usage keys: ${error instanceof Error ? error.message : String(error)}`) })
   const fetcherFor = (provider: UsageProviderId, account: string): (() => Promise<ProviderUsage>) | undefined => {
     if (isKeyProviderId(provider)) return keyUsage.has(provider) ? () => keyUsage.fetchStored(provider) : undefined
     switch (provider) {
@@ -1168,10 +1168,10 @@ export function apply(ctx: Context, config: Config): void {
   // by this entry id, so the rows carry it as their settings namespace.
   const settingsNs = ctx.fiber.entry?.options.id ?? name
   ctx.effect(() => ctx.llm.registerConfigurableProviders(directoryEntries(providers, settingsNs)),
-    'dsh-subscription-models: Models page rows')
+    'dsh-plugin-subscription-usage: Models page rows')
   // This plugin renders its own settings UI; keep clients from generating a form.
   ctx.inject(['settings'], child => {
-    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber), 'dsh-subscription-models: settings presentation')
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber), 'dsh-plugin-subscription-usage: settings presentation')
   })
 
   // Same-subscription account pools: a catalog model with ≥2 accounts of
@@ -1473,7 +1473,7 @@ export function apply(ctx: Context, config: Config): void {
       await adapter.listOwnModels(provider, undefined, signal)
     }))
   }, () => onWarn('background model catalog refresh failed; next automatic attempt is in one hour')),
-  'dsh-subscription-models: hourly model catalog refresh')
+  'dsh-plugin-subscription-usage: hourly model catalog refresh')
 
   // Proactively keep keychain-bound Claude accounts synced with Claude Code's
   // own store (Keychain/file) every 5 minutes, so a session left idle between
@@ -1492,7 +1492,7 @@ export function apply(ctx: Context, config: Config): void {
         }
       }, () => undefined)
     }, 5 * 60_000)
-    ctx.effect(() => () => { clearInterval(syncTimer) }, 'dsh-subscription-models: claude background sync timer')
+    ctx.effect(() => () => { clearInterval(syncTimer) }, 'dsh-plugin-subscription-usage: claude background sync timer')
   }
 
   // `web` is optional on headless/minimal compositions. Register Codex behind

@@ -23,7 +23,7 @@ test('AC-001: each enabled provider is a configurable provider under the plugin 
       ['codex', 'ChatGPT (Codex)'], ['claude', 'Claude'], ['grok', 'Grok'],
     ])
     // Without a Loader entry the namespace falls back to the package name.
-    assert.ok(rows.every(row => row.settingsNs === 'dsh-subscription-models'))
+    assert.ok(rows.every(row => row.settingsNs === 'dsh-plugin-subscription-usage'))
     assert.ok(rows.every(row => row.nativeAuth?.oauth === true && row.nativeAuth.env.length === 0))
     await runtime.dispose()
     assert.deepEqual(llm.listConfigurableProviders(), [])

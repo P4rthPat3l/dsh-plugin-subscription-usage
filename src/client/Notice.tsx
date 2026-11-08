@@ -16,7 +16,7 @@ import { useNow } from './hooks.js'
 import { usePrefs, useStore } from './context.js'
 import type { SurfaceInjected } from './context.js'
 
-const DISMISSED_KEY = 'dsh-subscription-models.dismissed-notices'
+const DISMISSED_KEY = 'dsh-plugin-subscription-usage.dismissed-notices'
 
 export interface PaceNotice {
   id: string

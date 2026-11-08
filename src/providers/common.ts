@@ -387,7 +387,7 @@ export class TokenManager<S extends TimedSession> {
     const session = await this.options.load()
     if (session === undefined) {
       throw new LlmError(
-        `dsh-subscription-models: not logged in to ${this.options.displayName}; `
+        `dsh-plugin-subscription-usage: not logged in to ${this.options.displayName}; `
         + 'log in via Settings → Subscriptions in the dsh web app',
         'MISSING_CREDENTIAL',
       )

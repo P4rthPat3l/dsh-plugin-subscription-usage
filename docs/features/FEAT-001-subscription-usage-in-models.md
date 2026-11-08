@@ -52,7 +52,7 @@ UI reference: [design/usage-draft.html](../../design/usage-draft.html), draft v3
 
 **Included**
 
-- Rename the package to `dsh-subscription-models` and keep the upstream core for auth, providers, pools, translation and tools, including Grok and its tools.
+- Rename the package to `dsh-plugin-subscription-usage` and keep the upstream core for auth, providers, pools, translation and tools, including Grok and its tools.
 - Register each enabled provider as a configurable provider so the Models page lists it.
 - Provider card body, Models footer options, composer gauge and popover, new-session gauge, pace notices.
 - Live usage from response headers, refresh policy, and a server-side record of the serving account per session.

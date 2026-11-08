@@ -744,7 +744,7 @@ export function registerAuthRpc(
     for (const endpoint of SUBSCRIPTIONS_AUTH_ENDPOINTS) {
       ctx.effect(
         () => register(fetchRouteFor(endpoint, handler)),
-        `dsh-subscription-models: /api/${SUBSCRIPTIONS_AUTH_PREFIX}${endpoint} route`,
+        `dsh-plugin-subscription-usage: /api/${SUBSCRIPTIONS_AUTH_PREFIX}${endpoint} route`,
       )
     }
   })

@@ -39,7 +39,7 @@ const VENDORED_LIBRARY = /^@deepseek-ai\/(cosmokit|schemastery)(\/|$)/
 const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
 
 export default defineConfig({
-  name: 'dsh-subscription-models/client',
+  name: 'dsh-plugin-subscription-usage/client',
   entry: { client: 'src/client/index.ts' },
   // Single lib/ artifact dir shared with the tsc-emitted node half;
   // entryFileNames pins the bundle at exactly lib/client.js.
@@ -81,7 +81,7 @@ export default defineConfig({
   }],
   outputOptions: {
     entryFileNames: 'client.js',
-    banner: 'window.__ModuleLoader__.load({ id: "dsh-subscription-models", factory: (require) => {',
+    banner: 'window.__ModuleLoader__.load({ id: "dsh-plugin-subscription-usage", factory: (require) => {',
     footer: 'return module.exports; } });',
     intro: 'var module = { exports: {} }; var exports = module.exports;',
   },
