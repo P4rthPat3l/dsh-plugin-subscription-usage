@@ -6,12 +6,12 @@ Feature documentation lives in `docs/features/`. Read `FEAT-001` before changing
 
 ## Facts
 
-- `src/auth`, `src/providers`, `src/translate` and `src/tools` are copied from upstream `V1ki/dsh-plugin-subscriptions` at the commit in `UPSTREAM`. Keep changes there small so upstream fixes can be ported.
+- `src/auth`, `src/providers`, `src/translate` and `src/tools` are carry the sign-in, provider, pool and translation core. Keep changes there small.
 - `pnpm-workspace.yaml` pins every `@deepseek-ai/dsh-*` package to one version through `overrides`. Mixed versions give two copies of branded types such as `SessionId`, and the build fails with unrelated-looking type errors.
 - Claude's `/api/oauth/profile` returns the account email only with the header `anthropic-beta: oauth-2025-04-20`. Without it the account shows as `token-…`. Startup backfills missing emails.
 - Codex sends usage in `x-codex-{primary,secondary}-*` headers as 0 to 100 percent. Claude sends `anthropic-ratelimit-unified-{5h,7d}-utilization` as a 0 to 1 fraction. Both arrive on 429 replies too.
 - The Models page draws its own Edit button on every configurable provider row. A plugin cannot hide it.
-- Upstream `dsh-plugin-subscriptions` must stay disabled in the same profile. Both register the `codex` adapter, and the second fails with `DUPLICATE_ADAPTER`.
+- Any other subscriptions plugin must stay disabled in the same profile. Both register the `codex` adapter, and the second fails with `DUPLICATE_ADAPTER`.
 - The client bundle imports only `react`, `react-dom` and `react/jsx-runtime` at runtime. Importing `dsh-client-ui-primitives` failed to load in the 0.2.2 web page, so icons are local SVGs and colors use theme tokens `--dsw-alias-*`. Check `lib/client.js` for other `require(` calls after a build.
 - `.dsm-w` rows use `display: contents` so cells align on the parent grid. A `title` on the row element shows no tooltip, so put it on the cells.
 - To add a provider, extend `ProviderId`, `PROVIDER_IDS` and `PROVIDER_SHORT_NAMES` in `src/auth/store.ts`, `providerIdSchema` in `src/index.ts`, and `PROVIDERS` in `src/client/rpc.ts`. Register a usage fetcher in `usageFetchers` and `fetcherFor`; `status` then reports the provider as `metered`, and every Client surface picks it up.

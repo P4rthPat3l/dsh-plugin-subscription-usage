@@ -44,7 +44,7 @@ UI reference: [design/usage-draft.html](../../design/usage-draft.html), draft v3
 
 ## 2. Problem and Outcome
 
-**Problem.** The upstream plugin `dsh-plugin-subscriptions` 0.9.12 keeps subscriptions on a separate Settings page and shows usage as "% used plus reset date". That answers what was spent, not whether the limit will last until reset. It refreshes every 15 minutes, so the composer pill is often stale.
+**Problem.** The earlier subscriptions plugin keeps subscriptions on a separate Settings page and shows usage as "% used plus reset date". That answers what was spent, not whether the limit will last until reset. It refreshes every 15 minutes, so the composer pill is often stale.
 
 **Desired outcome.** Each subscription is a Models row. Each limit shows a bar whose color is its pace state, a forecast of when it empties, so the user can see at a glance whether they will run out before reset. Usage updates after every response without extra provider calls.
 

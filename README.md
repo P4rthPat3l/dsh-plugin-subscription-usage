@@ -2,8 +2,6 @@
 
 A DeepSeek Harness plugin that uses your ChatGPT (Codex), Claude, Grok, GitHub Copilot and Google Antigravity subscriptions as LLM providers, and shows how fast you are using each limit.
 
-It replaces `dsh-plugin-subscriptions`. Both register the `codex` adapter, so enabling both fails with `DUPLICATE_ADAPTER`. Disable the other one first.
-
 ## What you get
 
 - **Models page.** Each subscription is a provider row where you sign in, manage accounts, choose models and enable tools.
@@ -47,10 +45,6 @@ Restart DSH, then open Settings, Models.
 
 - Copilot, Z.ai, Ollama Cloud and Kimi Code usage comes from endpoints the vendors do not document. They can change without notice, and the card then shows "Usage unavailable".
 - A plain Moonshot key does not work for Kimi Code usage.
-
-## Credits
-
-Built on [V1ki/dsh-plugin-subscriptions](https://github.com/V1ki/dsh-plugin-subscriptions) (MIT). The sign-in, provider, pool and translation code under `src/auth`, `src/providers`, `src/translate` and `src/tools` comes from it. The Usage page, key providers and the Models UI are new.
 
 ## License
 
