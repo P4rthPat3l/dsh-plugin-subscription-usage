@@ -1,0 +1,5 @@
+# Mounts the Host half when this bundle is installed into a profile. The
+# Client half is discovered from `dsh.client` in package.json.
+- insert:
+    - id: subscription-models
+      name: dsh-subscription-models

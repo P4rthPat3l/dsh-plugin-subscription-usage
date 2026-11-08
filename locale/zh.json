@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "订阅模型",
+    "description": "在模型页面使用 ChatGPT (Codex)、Claude、Grok、GitHub Copilot 和 Google Antigravity 订阅，并在输入框下方显示按速度预测的用量。"
+  }
+}
