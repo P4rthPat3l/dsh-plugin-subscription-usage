@@ -6,7 +6,7 @@
 import type { ReactNode } from 'react'
 import type { UsageWindow } from '../providers/common.js'
 import { displayPercent, pace } from '../usage/pace.js'
-import type { Pace, QuotaDisplay } from '../usage/pace.js'
+import type { Pace, PaceState, QuotaDisplay } from '../usage/pace.js'
 import { format } from './locales.js'
 import type { SubscriptionsKey } from './locales.js'
 
@@ -157,6 +157,28 @@ export function primaryWindows(windows: readonly UsageWindow[] | undefined): Sho
   return [...all].sort((a, b) => b.usedPercent - a.usedPercent).slice(0, 2)
 }
 
+/** Which pace state needs attention first when only one window fits. */
+const ATTENTION: Record<PaceState, number> = { out: 4, over: 3, tight: 2, calm: 1, unknown: 0 }
+
+/**
+ * The one window a crowded gauge keeps: the state that needs attention first,
+ * then the fuller window, then the earlier one.
+ */
+export function tightestWindow(windows: readonly UsageWindow[] | undefined, now: number): ShownWindow[] {
+  const shown = primaryWindows(windows)
+  if (shown.length < 2) return shown
+  let best = shown[0]!
+  let bestRank = ATTENTION[pace(best, now).state]
+  for (const window of shown.slice(1)) {
+    const rank = ATTENTION[pace(window, now).state]
+    if (rank > bestRank || (rank === bestRank && window.usedPercent > best.usedPercent)) {
+      best = window
+      bestRank = rank
+    }
+  }
+  return [best]
+}
+
 /** The pace bar: fill is quota, hatch is the forecast, color is the pace state. Drains in `left` mode. */
 export function Bar({ window, p, display, height = 6 }: { window: UsageWindow; p: Pace; display: QuotaDisplay; height?: number }) {
   const used = p.state === 'unknown' ? 0 : p.usedPercent
@@ -231,9 +253,9 @@ export function Mini({ t, window, display, now }: { t: T; window: ShownWindow; d
   )
 }
 
-/** The mini meters of an account's unscoped windows. */
-export function Minis({ t, windows, display, now }: { t: T; windows: readonly UsageWindow[] | undefined; display: QuotaDisplay; now: number }) {
-  const shown = primaryWindows(windows)
+/** The mini meters of an account's unscoped windows, all of them or the one that matters most. */
+export function Minis({ t, windows, display, now, tight = false }: { t: T; windows: readonly UsageWindow[] | undefined; display: QuotaDisplay; now: number; tight?: boolean }) {
+  const shown = tight ? tightestWindow(windows, now) : primaryWindows(windows)
   if (shown.length === 0) return null
   return <span className="dsm-minis">{shown.map((w, i) => <Mini key={i} t={t} window={w} display={display} now={now} />)}</span>
 }

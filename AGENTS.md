@@ -14,6 +14,7 @@ Feature documentation lives in `docs/features/`. Read `FEAT-001` before changing
 - Any other subscriptions plugin must stay disabled in the same profile. Both register the `codex` adapter, and the second fails with `DUPLICATE_ADAPTER`.
 - The client bundle imports only `react`, `react-dom` and `react/jsx-runtime` at runtime. Importing `dsh-client-ui-primitives` failed to load in the 0.2.2 web page, so icons are local SVGs and colors use theme tokens `--dsw-alias-*`. Check `lib/client.js` for other `require(` calls after a build.
 - `.dsm-w` rows use `display: contents` so cells align on the parent grid. A `title` on the row element shows no tooltip, so put it on the cells.
+- The composer gauge measures its flex box before paint and takes the widest detail that fits: every window, one window per provider (`tightestWindow` in `meter.tsx`), the first provider alone, then the meter icon. `.dsm-gauge-ghost` copies measure each detail's natural width, so they must keep `width: max-content` and render the same meters as the visible gauge (as spans, not the button).
 - To add a provider, extend `ProviderId`, `PROVIDER_IDS` and `PROVIDER_SHORT_NAMES` in `src/auth/store.ts`, `providerIdSchema` in `src/index.ts`, and `PROVIDERS` in `src/client/rpc.ts`. Register a usage fetcher in `usageFetchers` and `fetcherFor`; `status` then reports the provider as `metered`, and every Client surface picks it up.
 - `settings.models.provider-card` is keyed by settings namespace. This plugin draws only on `subscription-models` cards, so usage for another plugin's provider can show in the composer but not on that provider's card.
 - Copilot usage comes from `api.github.com/copilot_internal/user` with the GitHub OAuth token (`refreshToken`), not the Copilot API token.
@@ -27,4 +28,4 @@ pnpm build   # tsc and tsdown, writes lib/
 pnpm test    # compiles to lib-test/ and runs node --test
 ```
 
-The `web` profile installs this package as a link, so `pnpm build` updates the installed copy. Reload the page for client changes; restart DSH for host changes.
+The `web` profile loads its own copy of this package from `~/.dsh/profiles/web/node_modules`, not this checkout. As of 2026-11-09 that copy is a pnpm store install, so `pnpm build` does not update what the GUI loads: reinstall the plugin into the profile, then reload the page for client changes and restart DSH for host changes.

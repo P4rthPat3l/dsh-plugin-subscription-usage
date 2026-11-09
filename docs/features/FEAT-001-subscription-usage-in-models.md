@@ -81,7 +81,7 @@ UI reference: [design/usage-draft.html](../../design/usage-draft.html), draft v3
 3. A signed-in row shows the active account in full. Other accounts fold into one summary row.
 4. **Manage** opens Accounts, Models and Tools tabs inline.
 5. The user sends a prompt. The reply's headers update the meters without a usage call.
-6. The composer gauge shows meters for the current model's provider, then any pinned providers. When none of those reports usage, the gauge shows a meter icon instead. Clicking either opens the popover.
+6. The composer gauge shows meters for the current model's provider, then any pinned providers. It keeps one row: when the dock has no room for every window, each provider shows only the window that needs attention most, then the first provider alone, then the meter icon, and the popover still lists everything. When none of those reports usage, the gauge shows a meter icon instead. Clicking either opens the popover.
 7. The popover lists the shown providers expanded. Other signed-in providers with usage sit behind a folded "N more" row, each with a pin button. With nothing shown, the popover lists them all without the fold.
 8. The user pins a provider from the popover or from the pin button on its Models card. Composer usage has one on or off switch in the Models footer.
 
@@ -177,7 +177,7 @@ Upstream files changed for this feature: each adapter in `src/providers/{codex,c
 | Client | Preferences over `configForms` | `src/client/prefs.ts` | Current |
 | Client | Meters, labels, times | `src/client/meter.tsx`, `src/client/styles.ts` | Current |
 | Client | Provider card with sign-in and Manage | `src/client/ProviderCard.tsx` | Current |
-| Client | Gauge and popover | `src/client/Gauge.tsx` | Current |
+| Client | Gauge and popover; the gauge measures its flex box and steps down through four details that fit | `src/client/Gauge.tsx` | Current |
 | Client | Models footer: gauge mode, pins, Left and Used, pace warnings, proxy | `src/client/Footer.tsx` | Current |
 | Client | Pace notice | `src/client/Notice.tsx` | Current |
 
@@ -194,6 +194,7 @@ Upstream files changed for this feature: each adapter in `src/providers/{codex,c
 | BR-007 | Current | The composer shows the current model's provider plus pinned providers; only signed-in providers the Host marks `metered` appear | `gaugeProviders` in `Gauge.tsx` | `test/client/client.spec.ts` |
 | BR-008 | Current | Provider short names and `metered` come from the `status` response; the Client keeps no per-provider lists besides the id order | `rpc.ts` status handler, `client/rpc.ts` | `test/client/client.spec.ts` |
 | BR-009 | Current | A window is labeled by its length (5h, 7d, 30d), then by kind, then "limit" | `kindLabel` in `meter.tsx` | `test/client/client.spec.ts` |
+| BR-010 | Current | The composer gauge never wraps a provider name and never widens the dock. From widest to narrowest it shows every window, one window per provider (chosen by pace state then used percent), the first shown provider only, and the meter icon, and picks the first detail whose natural width fits the measured box | `gaugeDetail` in `Gauge.tsx`, `tightestWindow` in `meter.tsx` | `test/client/client.spec.ts` |
 
 ## 15. Acceptance Criteria
 
@@ -220,6 +221,7 @@ Each criterion maps to one test named with its ID.
 | AC-017 | Windows are named by their length, falling back to kind, then "limit" |
 | AC-018 | A profile saved with `gauge: off` keeps the composer hidden; other legacy modes show it |
 | AC-019 | Copilot premium requests become one monthly window with used and limit counts; unlimited plans report none |
+| AC-020 | The gauge picks the widest of four details that fits the box it measured: every window, one window per provider, the first shown provider only, then the meter icon. A crowded gauge keeps the window whose pace state needs attention first |
 
 ### Edge cases
 
@@ -232,6 +234,7 @@ Each criterion maps to one test named with its ID.
 | CASE-005 | Upstream plugin still installed | It must be disabled; both cannot register `codex` |
 | CASE-006 | Antigravity reports one window per model | Windows with the same usage and reset share one quota, so they merge into one row named by model family, such as "Claude · GPT". The tooltip lists the models. A per-model window at 0% with no reset is hidden |
 | CASE-007 | Long labels or reset times | Cells truncate with an ellipsis; the popover never scrolls sideways |
+| CASE-008 | Side panel opens and narrows the composer, or three providers are pinned | The gauge stays one line at the dock's height and never widens the row. It drops to one window per provider, then to the first shown provider only, then to the meter icon, instead of wrapping the provider name |
 
 ## 17. Security and Privacy
 
@@ -246,11 +249,11 @@ Each criterion maps to one test named with its ID.
 | Test type | Required coverage | Path |
 |---|---|---|
 | Unit | Pace, header parsing, refresh policy, directory registration | `test/usage/*.spec.ts` |
-| Unit | Active-account split, gauge providers, pace notice | `test/client/client.spec.ts` |
+| Unit | Active-account split, gauge providers, gauge width detail, pace notice | `test/client/client.spec.ts` |
 | Upstream | Existing upstream specs for retained core | `test/*.spec.ts` |
 | Manual | Install in the `web` profile and check AC-014 in the GUI | Owner check |
 
-Every AC except AC-014 has a test with its ID in the name. AC-014 needs the live page. On 2026-11-08, 720 tests passed.
+Every AC except AC-014 has a test with its ID in the name. AC-014 needs the live page. On 2026-11-09, 741 tests passed.
 
 ```bash
 pnpm build
@@ -300,3 +303,4 @@ pnpm test
 | 2026-11-08 | 0.1.0 | Built phases 1 to 4. After the owner's install: Left and Used moved to the Models footer only, the popover lost its sideways scroll, reset times show a time, weekday or date, and Claude emails load with the profile beta header | Current | Parth Patel |
 | 2026-11-08 | 0.1.0 | Composer usage became one on or off switch plus pins. The gauge stays as a meter icon on models without usage, and the popover folds other providers behind "N more". Cards have a pin button. Models has Select all and Deselect all. Provider names and metering come from `status`. Windows are labeled by length and may carry used and limit counts. Copilot shows its monthly premium-request quota | Current | Parth Patel |
 | 2026-11-08 | 0.1.0 | Removed the time tick from bars because the owner found it unclear; pace now shows through color and the empty-at time. Antigravity per-model windows merge by shared quota | Current | Parth Patel |
+| 2026-11-09 | unreleased | The composer gauge fits the dock row: it measures the box before paint and takes the widest detail that fits, from every window to one window per provider (pace state first, then used percent) to the first provider alone to the meter icon. Names never wrap and the row height never changes | Current | Parth Patel |

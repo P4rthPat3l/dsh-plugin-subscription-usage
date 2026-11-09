@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { gaugeProviders, popoverProviders } from '../../src/client/Gauge.js'
+import { gaugeDetail, gaugeProviders, popoverProviders } from '../../src/client/Gauge.js'
 import { currentNotice } from '../../src/client/Notice.js'
 import { DEFAULT_PREFS, parsePrefs } from '../../src/client/prefs.js'
 import type { UsagePreferencesView } from '../../src/client/prefs.js'
@@ -8,7 +8,7 @@ import { splitAccounts, usageKey } from '../../src/client/store.js'
 import type { StoreSnapshot, UsageEntry } from '../../src/client/store.js'
 import type { AccountStatus, ProviderStatus, StatusValue, UsageProviderId } from '../../src/client/rpc.js'
 import { en } from '../../src/client/locales.js'
-import { shownWindows, windowLabel } from '../../src/client/meter.js'
+import { shownWindows, tightestWindow, windowLabel } from '../../src/client/meter.js'
 import type { SubscriptionsKey } from '../../src/client/locales.js'
 import type { UsageWindow } from '../../src/providers/common.js'
 
@@ -67,6 +67,38 @@ test('AC-016: with nothing shown the popover still lists every signed-in metered
   const snap = snapshot({ codex: metered(provider([account('a', true)])), claude: metered(provider([account('b', true)])), copilot: provider([account('c', true)]) })
   assert.deepEqual(popoverProviders([], snap), { shown: [], others: ['codex', 'claude'] })
   assert.deepEqual(popoverProviders(['claude'], snap), { shown: ['claude'], others: ['codex'] })
+})
+
+test('AC-020: the gauge takes the widest detail the box can give, and the icon when none fits', () => {
+  // Unmeasured (no flex box found, or the hidden copies have not run): show everything rather than hide a window.
+  assert.equal(gaugeDetail(undefined, 300, 200, 100), 'full')
+  assert.equal(gaugeDetail(500, undefined, 200, 100), 'full')
+  assert.equal(gaugeDetail(500, 300, 200, 100), 'full')
+  assert.equal(gaugeDetail(299.4, 300, 200, 100), 'full')
+  assert.equal(gaugeDetail(299, 300, 200, 100), 'tight')
+  assert.equal(gaugeDetail(199, 300, 200, 100), 'current')
+  assert.equal(gaugeDetail(99, 300, 200, 100), 'icon')
+})
+
+test('AC-020: a crowded gauge keeps the window that needs attention, then the fuller one', () => {
+  const D = 24 * H
+  // A calm session at 80% against a weekly at 40% that is over pace: state beats size.
+  const calmSession: UsageWindow = { kind: 'session', usedPercent: 80 }
+  const overWeekly: UsageWindow = { kind: 'weekly', usedPercent: 40, durationMs: 7 * D, resetsAt: NOW + 0.7 * 7 * D }
+  assert.deepEqual(tightestWindow([calmSession, overWeekly], NOW).map(w => w.usedPercent), [40])
+  // Same state: the fuller window wins.
+  assert.deepEqual(tightestWindow([
+    { kind: 'session', usedPercent: 25 },
+    { kind: 'weekly', usedPercent: 7 },
+  ], NOW).map(w => w.usedPercent), [25])
+  // Same state and same use: the session window wins.
+  assert.deepEqual(tightestWindow([
+    { kind: 'session', usedPercent: 50 },
+    { kind: 'weekly', usedPercent: 50 },
+  ], NOW).map(w => w.kind), ['session'])
+  // One window or none passes straight through.
+  assert.deepEqual(tightestWindow([overWeekly], NOW).map(w => w.usedPercent), [40])
+  assert.deepEqual(tightestWindow(undefined, NOW), [])
 })
 
 test('AC-017: windows are named by their length, falling back to kind then limit', () => {

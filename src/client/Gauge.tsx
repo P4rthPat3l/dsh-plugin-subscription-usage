@@ -36,6 +36,83 @@ function useCurrentProvider(source: CurrentModelSource | undefined): string | un
   return useSyncExternalStore(source?.subscribe ?? noSubscribe, () => source?.getSnapshot().current?.provider)
 }
 
+/**
+ * What the dock row leaves room for, widest first: every meter, one window per
+ * provider, the first shown provider only, or nothing but the meter icon.
+ */
+export type GaugeDetail = 'full' | 'tight' | 'current' | 'icon'
+
+/** The natural width of each detail, as the hidden copies report it. */
+export interface GaugeWidths {
+  full: number | undefined
+  tight: number | undefined
+  current: number | undefined
+}
+
+/** Whether two measurements describe the same layout, within a pixel. */
+function sameWidths(a: GaugeWidths, b: GaugeWidths): boolean {
+  return Math.abs((a.full ?? -1) - (b.full ?? -1)) < 1
+    && Math.abs((a.tight ?? -1) - (b.tight ?? -1)) < 1
+    && Math.abs((a.current ?? -1) - (b.current ?? -1)) < 1
+}
+
+/** The widest detail whose natural width the row can give, or the icon when none fits. */
+export function gaugeDetail(available: number | undefined, full: number | undefined, tight: number | undefined, current: number | undefined): GaugeDetail {
+  // Before the first measurement, show everything: hiding a window is the worse error.
+  if (available === undefined || full === undefined || tight === undefined || current === undefined) return 'full'
+  // The +1 keeps sub-pixel rounding from hiding a window.
+  if (available + 1 > full) return 'full'
+  if (available + 1 > tight) return 'tight'
+  if (available + 1 > current) return 'current'
+  return 'icon'
+}
+
+/**
+ * The flex container that gives the gauge its width. A row shares that width with
+ * its other children; a column puts the gauge on its own line. Wrappers that hold
+ * only the gauge are skipped.
+ */
+function gaugeBox(el: HTMLElement): { box: HTMLElement; item: Element; shares: boolean } | undefined {
+  let item: Element = el
+  let node = el.parentElement
+  for (let depth = 0; node !== null && depth < 3; depth += 1) {
+    const style = getComputedStyle(node)
+    if (style.display.includes('flex')) {
+      const row = style.flexDirection.startsWith('row')
+      if (row && node.children.length > 1) return { box: node, item, shares: true }
+      if (!row && node.children.length > 1) return { box: node, item, shares: false }
+    }
+    item = node
+    node = node.parentElement
+  }
+  return undefined
+}
+
+const pixels = (value: string): number => {
+  const number = Number.parseFloat(value)
+  return Number.isFinite(number) ? number : 0
+}
+
+/** The box's content width minus what its other children and the gaps take when they share a line. */
+function rowSpace(box: HTMLElement, item: Element, shares: boolean): number {
+  const style = getComputedStyle(box)
+  const content = box.getBoundingClientRect().width - pixels(style.paddingLeft) - pixels(style.paddingRight)
+    - pixels(style.borderLeftWidth) - pixels(style.borderRightWidth)
+  if (!shares) return content
+  const gap = pixels(style.columnGap)
+  let reserved = 0
+  for (const child of Array.from(box.children)) {
+    if (child === item) continue
+    const childStyle = getComputedStyle(child)
+    const width = child.getBoundingClientRect().width
+    // A child that grows takes free space before the gauge does, so subtract only its flex base.
+    const grows = (Number.parseFloat(childStyle.flexGrow) || 0) > 0
+    const base = grows && /(px|%)$/.test(childStyle.flexBasis) ? Math.min(width, pixels(childStyle.flexBasis)) : width
+    reserved += base + pixels(childStyle.marginLeft) + pixels(childStyle.marginRight) + gap
+  }
+  return content - reserved
+}
+
 /** A provider the composer can show: signed in and reporting usage. */
 const showable = (snapshot: StoreSnapshot, id: ProviderId): boolean =>
   isMetered(snapshot.status, id) && (snapshot.status?.providers[id]?.accounts.length ?? 0) > 0
@@ -73,14 +150,49 @@ function GaugeBody({ store, prefs, t, sessionId, currentModel, openSettings }: G
   const current = useCurrentProvider(currentModel)
   const now = useNow(30_000)
   const [open, setOpen] = useState(false)
+  const [space, setSpace] = useState<number>()
+  const [natural, setNatural] = useState<GaugeWidths>({ full: undefined, tight: undefined, current: undefined })
   const anchor = useRef<HTMLButtonElement>(null)
+  const slot = useRef<HTMLSpanElement>(null)
+  const ghostFull = useRef<HTMLSpanElement>(null)
+  const ghostTight = useRef<HTMLSpanElement>(null)
+  const ghostCurrent = useRef<HTMLSpanElement>(null)
+  const shown = gaugeProviders(prefView, current, snapshot)
+  // The gauge mounts and unmounts with the switch, the status and the shown providers.
+  const mounted = prefView.composer && snapshot.status !== undefined ? shown.join(',') : ''
 
   useEffect(() => { store.focusSession(sessionId) }, [store, sessionId])
 
+  // The dock row shrinks when a side panel opens, so read what it leaves before paint.
+  useLayoutEffect(() => {
+    const el = slot.current
+    const target = el === null ? undefined : gaugeBox(el)
+    if (target === undefined) return
+    const measure = (): void => {
+      const next = rowSpace(target.box, target.item, target.shares)
+      setSpace(previous => previous !== undefined && Math.abs(previous - next) < 1 ? previous : next)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(target.box)
+    for (const child of Array.from(target.box.children)) {
+      if (child !== target.item) observer.observe(child)
+    }
+    return () => { observer.disconnect() }
+  }, [mounted])
+
+  // Hidden copies lay out each detail at its natural width; those widths are what the box must give.
+  useLayoutEffect(() => {
+    const width = (el: HTMLSpanElement | null): number | undefined => el?.getBoundingClientRect().width
+    const next: GaugeWidths = { full: width(ghostFull.current), tight: width(ghostTight.current), current: width(ghostCurrent.current) }
+    setNatural(previous => sameWidths(previous, next) ? previous : next)
+  })
+
   if (!prefView.composer || snapshot.status === undefined) return null
-  const shown = gaugeProviders(prefView, current, snapshot)
   // Nothing to show and nothing to open: no subscription reports usage.
   if (shown.length === 0 && popoverProviders(shown, snapshot).others.length === 0) return null
+  const detail = gaugeDetail(space, natural.full, natural.tight, natural.current)
 
   const toggle = (): void => {
     setOpen(value => {
@@ -91,16 +203,27 @@ function GaugeBody({ store, prefs, t, sessionId, currentModel, openSettings }: G
   }
 
   return (
-    <span className="dsm-gauge-slot">
+    <span className="dsm-gauge-slot" ref={slot}>
       <button ref={anchor} type="button" className="dsm-gauge" aria-expanded={open} aria-haspopup="dialog" aria-label={t('usageLabel')}
-        title={shown.length === 0 ? t('usageLabel') : undefined} onClick={toggle}>
-        {shown.length === 0 ? <Icon name="meter" /> : shown.map(provider => (
-          <span key={provider} className="dsm-gp">
-            <span className="dsm-gp-name">{shortName(snapshot.status, provider)}</span>
-            <Minis t={t} windows={windowsOf(snapshot, provider)} display={prefView.display} now={now} />
-          </span>
-        ))}
+        title={shown.length === 0 || detail === 'icon' ? t('usageLabel') : undefined} onClick={toggle}>
+        {shown.length === 0 || detail === 'icon' ? <Icon name="meter" /> : (
+          <Meters t={t} snapshot={snapshot} prefView={prefView} now={now}
+            shown={detail === 'current' ? shown.slice(0, 1) : shown} tight={detail !== 'full'} />
+        )}
       </button>
+      {shown.length === 0 ? null : (
+        <>
+          <span ref={ghostFull} className="dsm-gauge-ghost" aria-hidden="true">
+            <span className="dsm-gauge"><Meters t={t} snapshot={snapshot} prefView={prefView} shown={shown} now={now} /></span>
+          </span>
+          <span ref={ghostTight} className="dsm-gauge-ghost" aria-hidden="true">
+            <span className="dsm-gauge"><Meters t={t} snapshot={snapshot} prefView={prefView} shown={shown} now={now} tight /></span>
+          </span>
+          <span ref={ghostCurrent} className="dsm-gauge-ghost" aria-hidden="true">
+            <span className="dsm-gauge"><Meters t={t} snapshot={snapshot} prefView={prefView} shown={shown.slice(0, 1)} now={now} tight /></span>
+          </span>
+        </>
+      )}
       {open ? createPortal(
         <Popover t={t} store={store} prefs={prefs} snapshot={snapshot} prefView={prefView} shown={shown} now={now}
           anchor={anchor} onClose={() => { setOpen(false); anchor.current?.focus() }}
@@ -108,6 +231,22 @@ function GaugeBody({ store, prefs, t, sessionId, currentModel, openSettings }: G
         document.body,
       ) : null}
     </span>
+  )
+}
+
+/** One provider name and its meters, as shown on the gauge. */
+function Meters({ t, snapshot, prefView, shown, now, tight = false }: {
+  t: T; snapshot: StoreSnapshot; prefView: UsagePreferencesView; shown: readonly ProviderId[]; now: number; tight?: boolean
+}) {
+  return (
+    <>
+      {shown.map(provider => (
+        <span key={provider} className="dsm-gp">
+          <span className="dsm-gp-name">{shortName(snapshot.status, provider)}</span>
+          <Minis t={t} windows={windowsOf(snapshot, provider)} display={prefView.display} now={now} tight={tight} />
+        </span>
+      ))}
+    </>
   )
 }
 

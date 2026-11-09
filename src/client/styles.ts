@@ -56,7 +56,7 @@ export const css = `
 .dsm-minis { display: inline-flex; gap: 14px; flex: none; }
 .dsm-mini { display: inline-grid; grid-template-columns: auto 32px 34px; align-items: center; gap: 5px; font-size: 11px; line-height: 16px; }
 .dsm-mini i { font-style: normal; color: var(--dsw-alias-label-tertiary); max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dsm-mini b { font-weight: 500; text-align: right; color: var(--dsw-alias-label-primary); font-size: 12px; }
+.dsm-mini b { font-weight: 500; text-align: right; color: var(--dsw-alias-label-primary); font-size: 12px; white-space: nowrap; }
 .dsm-mini.dsm-tight b { color: var(--dsw-alias-state-warn-primary); }
 .dsm-mini.dsm-over b, .dsm-mini.dsm-out b { color: var(--dsw-alias-state-error-primary); }
 
@@ -122,15 +122,17 @@ export const css = `
 .dsm-footer-block h3 { margin: 0 0 4px; font-size: 14px; font-weight: 500; line-height: 22px; color: var(--dsw-alias-label-primary); }
 .dsm-footer-block .dsm-row { min-height: 40px; color: var(--dsw-alias-label-primary); }
 
-.dsm-gauge-slot { position: relative; display: inline-flex; }
+.dsm-gauge-slot { position: relative; display: inline-flex; min-width: 0; }
 .dsm-gauge { display: inline-flex; align-items: center; gap: 10px; height: 24px; padding: 0 8px; border-radius: 12px; border: 0; background: transparent; cursor: pointer;
-  color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; }
+  color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; min-width: 0; }
 .dsm-gauge:hover, .dsm-gauge[aria-expanded="true"] { background: var(--dsw-alias-interactive-bg-hover); }
-.dsm-gp { display: inline-flex; align-items: center; gap: 8px; }
+/* A crowded dock row narrows the meters instead of wrapping the name; the gauge drops a window in JS first. */
+.dsm-gp { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .dsm-gp + .dsm-gp { padding-left: 10px; border-left: .5px solid var(--dsw-alias-border-l3); }
-.dsm-gp-name { color: var(--dsw-alias-label-primary); }
-.dsm-gp .dsm-minis { gap: 10px; }
-.dsm-gp .dsm-mini { grid-template-columns: auto 26px auto; }
+.dsm-gp-name { color: var(--dsw-alias-label-primary); flex: none; white-space: nowrap; }
+.dsm-gp .dsm-minis { gap: 10px; flex: 0 1 auto; min-width: 0; }
+.dsm-gp .dsm-mini { grid-template-columns: auto minmax(0px, 26px) auto; min-width: 0; }
+.dsm-gauge-ghost { position: absolute; top: 0; left: 0; width: max-content; max-width: none; visibility: hidden; pointer-events: none; }
 
 .dsm-pop { position: fixed; z-index: 1000; width: 420px; max-width: calc(100vw - 20px); box-sizing: border-box; background: var(--dsw-specific-menu, var(--dsw-alias-bg-overlay));
   backdrop-filter: var(--dsw-menu-backdrop-filter, none); border-radius: var(--dsw-radius-xl); box-shadow: var(--dsw-elevation-panel, 0 12px 32px #0006);
