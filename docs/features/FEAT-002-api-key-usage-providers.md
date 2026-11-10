@@ -1,14 +1,14 @@
 ---
 doc_type: feature
 feature_id: FEAT-002
-title: API key usage providers (Z.ai, Ollama Cloud, Kimi Code)
+title: API key usage providers (Z.ai, Ollama Cloud, Kimi Code, MiniMax, ClinePass, OpenRouter, NanoGPT)
 status: active
 implementation_status: shipped_unverified
 owner: Parth Patel
 created: 2026-11-08
-last_updated: 2026-11-08
+last_updated: 2026-11-10
 last_verified_commit: null
-version: 0.1.0
+version: 0.2.0
 tags:
   - dsh-plugin
   - subscriptions
@@ -19,33 +19,33 @@ related_features:
 
 # API key usage providers
 
-> The Usage page shows limits for Z.ai, Ollama Cloud and Kimi Code. The user pastes an API key per provider and the plugin reads only usage with it. These providers are usage-only: no sign-in flow, no model routing.
+> The Usage page shows limits for Z.ai, Ollama Cloud, Kimi Code, MiniMax Coding Plan, ClinePass, OpenRouter and NanoGPT. The user pastes an API key per provider and the plugin reads only usage with it. These providers are usage-only: no sign-in flow, no model routing.
 
 ## 1. Feature Snapshot
 
 | Field | Details |
 |---|---|
 | Document status | Active |
-| Implementation status | Built and unit tested; not run against real keys or in the GUI |
+| Implementation status | Extending from 3 to 7 key providers |
 | Trigger | Opening Settings, Usage; clicking Refresh |
-| Outcome | Percent-used meters with reset times for three more providers, next to the OAuth ones |
-| Entry points | `settings.section` id `subscription-usage` (existing), new RPC endpoints `keys*` |
-| Data stores | New `~/.dsh/plugins/subscriptions/usage-keys.json`, mode 0600 |
+| Outcome | Percent-used meters with reset times for seven providers, next to the OAuth ones |
+| Entry points | `settings.section` id `subscription-usage` (existing), RPC endpoints `keys*` |
+| Data stores | `~/.dsh/plugins/subscriptions/usage-keys.json`, mode 0600 |
 
-Source: OpenChamber's quota fetchers (`packages/web/server/lib/quota/providers/{zai,ollama-cloud,kimi}.js`), read on 2026-11-08.
+Source: OpenChamber's quota fetchers (`packages/web/server/lib/quota/providers/{zai,ollama-cloud,kimi,minimax-coding-plan,cline-pass,openrouter,nanogpt}.js`).
 
 ## 2. Problem and Outcome
 
-The Usage page covers only the five OAuth providers. Z.ai, Ollama Cloud and Kimi Code are paid with an API key and have usage endpoints, but the plugin has no place to hold a key.
+The Usage page covers only the five OAuth providers. API-key-metered providers (Z.ai, Ollama Cloud, Kimi Code, MiniMax Coding Plan, ClinePass, OpenRouter, NanoGPT) are paid or quota-managed with an API key and have usage endpoints, but the plugin previously only supported three of them.
 
 ## 3. Scope
 
-In scope: the three providers above, key entry and removal on the Usage page, meters, refresh, pace warnings, pins, composer gauge.
-Out of scope: routing chat requests through these providers, cookie or browser-session auth, balance-only providers (DeepSeek, OpenRouter, MiniMax), gift resets, Cursor.
+In scope: the seven providers above (Z.ai, Ollama Cloud, Kimi Code, MiniMax, ClinePass, OpenRouter, NanoGPT), key entry and removal on the Usage page, meters, refresh, pace warnings, pins, composer gauge.
+Out of scope: routing chat requests through these providers, cookie or browser-session auth, balance-only accounts without limits, gift resets, Cursor.
 
 ## 6. User Journey
 
-1. Open Settings, Usage. Under the provider blocks a row reads "Add a provider" with Z.ai, Ollama Cloud and Kimi Code.
+1. Open Settings, Usage. Under the provider blocks a row reads "Add a provider" with available unconfigured providers.
 2. Pick one, paste the key, save. The plugin checks it by fetching usage once. A bad key shows the error and stores nothing.
 3. The provider block appears with its meters, Refresh, Pin and a "Remove key" action.
 4. Pinned providers show in the composer gauge like the OAuth ones.
@@ -65,11 +65,11 @@ Client `keysSet {provider, key}` -> Host validates by fetching usage -> writes `
 | BR-005 | Z.ai replies HTTP 200 with `success: false` for a bad key or no plan. That is a failure, not an empty result. |
 | BR-006 | These providers join the existing refresh policy unchanged: 60 s on open, 30 s manual, 5 min poll, failure cooldown never bypassed. |
 
-## 11. Implementation Map (Current, uncommitted working tree)
+## 11. Implementation Map
 
 | Path | Change |
 |---|---|
-| `src/usage-providers/` | `zai.ts`, `ollama-cloud.ts`, `kimi.ts` parsers; `common.ts` ids and `bearerJson`; `index.ts` `KeyUsage` and `UsageProviderId` |
+| `src/usage-providers/` | `zai.ts`, `ollama-cloud.ts`, `kimi.ts`, `minimax.ts`, `cline-pass.ts`, `openrouter.ts`, `nanogpt.ts` parsers; `common.ts` ids and `bearerJson`; `index.ts` `KeyUsage` and `UsageProviderId` |
 | `src/usage-providers/keys.ts` | Read, write and remove `usage-keys.json` atomically, mode 0600 |
 | `src/auth/rpc.ts` | Endpoints `keysSet`, `keysRemove`; `status` adds `keyProviders` and lists a configured key provider as a one-account metered provider with account key `key` |
 | `src/usage/service.ts`, `src/providers/pool-usage.ts` | Typed by `UsageProviderId`, so key providers share the cache and cooldown |
@@ -92,6 +92,14 @@ Design decision DEC-001: key providers are not added to `ProviderId`. That type 
 | AC-008 | `keysRemove` deletes the key and the provider disappears from `status` | unit |
 | AC-009 | The Usage page lists a configured key provider with meters; an unconfigured one appears only under "Add a provider" | client |
 | AC-010 | A key provider refresh obeys the 30 s manual limit | unit |
+| AC-011 | MiniMax Coding Plan `model_remains` parses interval (5h) and weekly windows with reset times | unit |
+| AC-012 | MiniMax business failure `base_resp.status_code: 1004` throws with "MiniMax doesn't share limits for this key" | unit |
+| AC-013 | ClinePass `limits` parses five_hour (5h), weekly (7d), and monthly windows | unit |
+| AC-014 | OpenRouter `/key` payload parses key limit, used percent, and next reset timestamp | unit |
+| AC-015 | OpenRouter management key is rejected with a specific error message | unit |
+| AC-016 | OpenRouter key without limit configured throws that no spending limit is set | unit |
+| AC-017 | NanoGPT `/usage` parses daily and weekly token quota windows with reset times | unit |
+| AC-018 | All 7 key providers are recognized in `KEY_PROVIDER_IDS` and can be set, listed, and removed | unit |
 
 ## 17. Security and Privacy
 
@@ -122,3 +130,4 @@ Verified on 2026-11-08 with a bogus key: `ollama.com/api/balance` and `api.kimi.
 |---|---|
 | 2026-11-08 | Proposed. |
 | 2026-11-08 | Built. 730 tests pass. Live check with real keys pending. |
+| 2026-11-10 | Extended to 7 key providers: added MiniMax Coding Plan, ClinePass, OpenRouter, and NanoGPT. 748 tests pass. |

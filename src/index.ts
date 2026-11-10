@@ -249,7 +249,7 @@ const poolMemberSchema: z<PoolMemberRef> = z.object({
  */
 const usagePreferencesSchema = z.object({
   composer: z.boolean().default(true),
-  pinned: z.array(z.union(['codex', 'claude', 'grok', 'copilot', 'antigravity', 'zai', 'ollama-cloud', 'kimi'])).default([]),
+  pinned: z.array(z.union(['codex', 'claude', 'grok', 'copilot', 'antigravity', 'zai', 'ollama-cloud', 'kimi', 'minimax', 'cline-pass', 'openrouter', 'nanogpt'])).default([]),
   display: z.union(['left', 'used']).default('left'),
   paceWarnings: z.boolean().default(true),
 })

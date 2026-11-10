@@ -17,7 +17,7 @@ export type { KeyProviderId, KeyProviderView, AccountStatus, ProviderStatus, Pro
 export const PROVIDERS: readonly ProviderId[] = ['codex', 'claude', 'grok', 'copilot', 'antigravity']
 
 /** Providers that read usage with a pasted key, in Usage-page order. Mirrors the Host's `KEY_PROVIDER_IDS`. */
-export const KEY_PROVIDERS: readonly KeyProviderId[] = ['zai', 'ollama-cloud', 'kimi']
+export const KEY_PROVIDERS: readonly KeyProviderId[] = ['zai', 'ollama-cloud', 'kimi', 'minimax', 'cline-pass', 'openrouter', 'nanogpt']
 
 /** Any provider the Usage page and gauge can show. */
 export type UsageProviderId = ProviderId | KeyProviderId

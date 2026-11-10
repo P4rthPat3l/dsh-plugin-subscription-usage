@@ -9,6 +9,10 @@ import { KeyStore } from './keys.js'
 import { kimi } from './kimi.js'
 import { ollamaCloud } from './ollama-cloud.js'
 import { zai } from './zai.js'
+import { minimax } from './minimax.js'
+import { clinePass } from './cline-pass.js'
+import { openrouter } from './openrouter.js'
+import { nanogpt } from './nanogpt.js'
 
 import type { ProviderId } from '../auth/store.js'
 
@@ -17,7 +21,15 @@ export { isKeyProviderId, KEY_PROVIDER_IDS }
 export type UsageProviderId = ProviderId | KeyProviderId
 export type { KeyProviderId }
 
-const PROVIDERS: Record<KeyProviderId, KeyProvider> = { zai, 'ollama-cloud': ollamaCloud, kimi }
+const PROVIDERS: Record<KeyProviderId, KeyProvider> = {
+  zai,
+  'ollama-cloud': ollamaCloud,
+  kimi,
+  minimax,
+  'cline-pass': clinePass,
+  openrouter,
+  nanogpt,
+}
 
 /** The only account a key provider has. */
 export const KEY_ACCOUNT = 'key'

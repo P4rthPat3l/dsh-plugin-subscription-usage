@@ -30,7 +30,7 @@ export interface KeyProvider {
 }
 
 /** Ids of the providers that read usage with a pasted API key. */
-export const KEY_PROVIDER_IDS = ['zai', 'ollama-cloud', 'kimi'] as const
+export const KEY_PROVIDER_IDS = ['zai', 'ollama-cloud', 'kimi', 'minimax', 'cline-pass', 'openrouter', 'nanogpt'] as const
 export type KeyProviderId = (typeof KEY_PROVIDER_IDS)[number]
 
 export const isKeyProviderId = (value: unknown): value is KeyProviderId =>

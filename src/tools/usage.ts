@@ -120,7 +120,7 @@ export async function buildUsageReport(
 export function createUsageTool(options: UsageToolOptions): ToolDefinition {
   return defineTool({
     name: 'subscription_usage',
-    description: 'Read how much of each AI subscription limit is used (ChatGPT Codex, Claude, Grok, Copilot, Antigravity, Z.ai, Ollama Cloud, Kimi Code). '
+    description: 'Read how much of each AI subscription limit is used (ChatGPT Codex, Claude, Grok, Copilot, Antigravity, Z.ai, Ollama Cloud, Kimi Code, MiniMax, ClinePass, OpenRouter, NanoGPT). '
       + 'Returns per provider the plan, each window\'s percent used and left, the reset time, and a pace state: calm, tight, over (will run out before reset, with emptyAt) or out. '
       + 'Call it before long, critical or heavy work, and prefer a provider whose pace is calm. Read-only. It returns cached data unless refresh is true.',
     parameters: {
