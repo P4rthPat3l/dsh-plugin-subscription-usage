@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { gaugeDetail, gaugeProviders, popoverProviders } from '../../src/client/Gauge.js'
+import { gaugeDetail, gaugeProviders, popoverProviders, rowSpace } from '../../src/client/Gauge.js'
 import { currentNotice } from '../../src/client/Notice.js'
 import { DEFAULT_PREFS, parsePrefs } from '../../src/client/prefs.js'
 import type { UsagePreferencesView } from '../../src/client/prefs.js'
@@ -78,6 +78,66 @@ test('AC-020: the gauge takes the widest detail the box can give, and the icon w
   assert.equal(gaugeDetail(299, 300, 200, 100), 'tight')
   assert.equal(gaugeDetail(199, 300, 200, 100), 'current')
   assert.equal(gaugeDetail(99, 300, 200, 100), 'icon')
+})
+
+interface FakeElement {
+  display: string
+  width: number
+  paddingLeft: string
+  paddingRight: string
+  borderLeftWidth: string
+  borderRightWidth: string
+  columnGap: string
+  flexGrow: string
+  flexBasis: string
+  marginLeft: string
+  marginRight: string
+  children: FakeElement[]
+  contains(other: FakeElement): boolean
+  getBoundingClientRect(): { width: number }
+}
+
+function fake(style: Partial<FakeElement> = {}, ...children: FakeElement[]): FakeElement {
+  const node: FakeElement = {
+    display: 'block', width: 0,
+    paddingLeft: '0px', paddingRight: '0px', borderLeftWidth: '0px', borderRightWidth: '0px', columnGap: '0px',
+    flexGrow: '0', flexBasis: 'auto', marginLeft: '0px', marginRight: '0px',
+    children,
+    contains: other => other === node || children.some(child => child.contains(other)),
+    getBoundingClientRect: () => ({ width: node.width }),
+    ...style,
+  }
+  return node
+}
+
+const asElement = (node: FakeElement): Element => node as unknown as Element
+
+test('AC-020: the gauge leaves room for slot occupants drawn inside display: contents anchors', () => {
+  const global = globalThis as { getComputedStyle?: typeof getComputedStyle }
+  const original = global.getComputedStyle
+  global.getComputedStyle = el => asElement(el as unknown as FakeElement) as unknown as CSSStyleDeclaration
+  try {
+    const gauge = fake({ display: 'inline-flex', width: 440 })
+    const item = fake({ display: 'flex', width: 440 }, gauge)
+    // Slot outlets wrap their occupants in a zero-size anchor (display: contents); the
+    // occupant's own box is what takes width in the row.
+    const branch = fake({ display: 'flex', width: 300 })
+    const branchAnchor = fake({ display: 'contents', width: 0 }, branch)
+    const preset = fake({ display: 'flex', width: 120 })
+    const presetAnchor = fake({ display: 'contents', width: 0 }, preset)
+    const workspace = fake({ display: 'flex', width: 170 })
+    const box = fake({ display: 'flex', width: 948, paddingLeft: '20px', paddingRight: '16px', columnGap: '2px' },
+      workspace, branchAnchor, presetAnchor, item)
+
+    // 948 - 20 - 16 - (170 + 300 + 120) - three 2px gaps
+    const space = rowSpace(asElement(box), asElement(item), true)
+    assert.equal(space, 316)
+    assert.equal(gaugeDetail(space, 440, 520, 260), 'current')
+    assert.equal(rowSpace(asElement(box), asElement(item), false), 912)
+  } finally {
+    if (original === undefined) delete global.getComputedStyle
+    else global.getComputedStyle = original
+  }
 })
 
 test('AC-020: a crowded gauge keeps the window that needs attention, then the fuller one', () => {
