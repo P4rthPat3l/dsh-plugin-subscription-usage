@@ -68,39 +68,21 @@ export function gaugeDetail(available: number | undefined, full: number | undefi
 }
 
 /**
- * The boxes a flex container lays out. Slot outlets render a `display: contents`
- * anchor, so an outlet's children are the container's items and the anchor itself
- * has no size to measure.
- */
-function layoutItems(el: Element): Element[] {
-  const items: Element[] = []
-  const walk = (node: Element): void => {
-    if (getComputedStyle(node).display === 'contents') {
-      for (const child of Array.from(node.children)) walk(child)
-      return
-    }
-    items.push(node)
-  }
-  for (const child of Array.from(el.children)) walk(child)
-  return items
-}
-
-/**
- * The flex container that gives the gauge its width and the item that shares it.
- * A row shares that width with its other items; a column puts the gauge on its
- * own line. Wrappers that hold only the gauge are skipped.
+ * The flex container that gives the gauge its width. A row shares that width with
+ * its other children; a column puts the gauge on its own line. Wrappers that hold
+ * only the gauge are skipped.
  */
 function gaugeBox(el: HTMLElement): { box: HTMLElement; item: Element; shares: boolean } | undefined {
+  let item: Element = el
   let node = el.parentElement
   for (let depth = 0; node !== null && depth < 3; depth += 1) {
     const style = getComputedStyle(node)
     if (style.display.includes('flex')) {
-      const items = layoutItems(node)
-      const item = items.find(candidate => candidate.contains(el))
-      if (item !== undefined && items.length > 1) {
-        return { box: node, item, shares: style.flexDirection.startsWith('row') }
-      }
+      const row = style.flexDirection.startsWith('row')
+      if (row && node.children.length > 1) return { box: node, item, shares: true }
+      if (!row && node.children.length > 1) return { box: node, item, shares: false }
     }
+    item = node
     node = node.parentElement
   }
   return undefined
@@ -111,15 +93,15 @@ const pixels = (value: string): number => {
   return Number.isFinite(number) ? number : 0
 }
 
-/** The box's content width minus what its other items and the gaps take when they share a line. */
-export function rowSpace(box: Element, item: Element, shares: boolean): number {
+/** The box's content width minus what its other children and the gaps take when they share a line. */
+function rowSpace(box: HTMLElement, item: Element, shares: boolean): number {
   const style = getComputedStyle(box)
   const content = box.getBoundingClientRect().width - pixels(style.paddingLeft) - pixels(style.paddingRight)
     - pixels(style.borderLeftWidth) - pixels(style.borderRightWidth)
   if (!shares) return content
   const gap = pixels(style.columnGap)
   let reserved = 0
-  for (const child of layoutItems(box)) {
+  for (const child of Array.from(box.children)) {
     if (child === item) continue
     const childStyle = getComputedStyle(child)
     const width = child.getBoundingClientRect().width
@@ -181,8 +163,7 @@ function GaugeBody({ store, prefs, t, sessionId, currentModel, openSettings }: G
 
   useEffect(() => { store.focusSession(sessionId) }, [store, sessionId])
 
-  // The row shrinks when a side panel opens, and slot occupants can mount after the
-  // gauge, so read what the row leaves before paint and again after any change.
+  // The dock row shrinks when a side panel opens, so read what it leaves before paint.
   useLayoutEffect(() => {
     const el = slot.current
     const target = el === null ? undefined : gaugeBox(el)
@@ -191,21 +172,14 @@ function GaugeBody({ store, prefs, t, sessionId, currentModel, openSettings }: G
       const next = rowSpace(target.box, target.item, target.shares)
       setSpace(previous => previous !== undefined && Math.abs(previous - next) < 1 ? previous : next)
     }
-    let observer: ResizeObserver | undefined
-    if (typeof ResizeObserver !== 'undefined') observer = new ResizeObserver(measure)
-    const watch = (): void => {
-      observer?.disconnect()
-      observer?.observe(target.box)
-      for (const child of layoutItems(target.box)) {
-        if (child !== target.item) observer?.observe(child)
-      }
-    }
-    watch()
     measure()
-    // A `display: contents` outlet has no box to resize, so new items report through mutation.
-    const mutations = typeof MutationObserver === 'undefined' ? undefined : new MutationObserver(() => { watch(); measure() })
-    mutations?.observe(target.box, { childList: true, subtree: true })
-    return () => { observer?.disconnect(); mutations?.disconnect() }
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(target.box)
+    for (const child of Array.from(target.box.children)) {
+      if (child !== target.item) observer.observe(child)
+    }
+    return () => { observer.disconnect() }
   }, [mounted])
 
   // Hidden copies lay out each detail at its natural width; those widths are what the box must give.
