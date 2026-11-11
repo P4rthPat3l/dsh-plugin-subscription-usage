@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-subscription-usage",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "ChatGPT (Codex), Claude, Grok, GitHub Copilot and Google Antigravity subscriptions as rows on the DSH Models page, with pace-aware usage meters",
   "license": "MIT",
   "author": "Parth Patel <pp542004@gmail.com>",
