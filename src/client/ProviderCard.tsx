@@ -385,6 +385,32 @@ function ManagePanel({ t, provider, status, rpc, onClose, onAddAccount }: {
       ) : null}
       {tab === 'models' ? (
         <>
+          {loaded?.promptCacheTtlDefault === undefined ? null : (
+            <>
+              <div className="dsm-row">
+                <span className="dsm-grow">{t('cacheLifetime')}</span>
+                <select className="dsm-select" aria-label={t('cacheLifetime')} value={draft?.promptCacheTtl ?? ''}
+                  onChange={event => {
+                    const value = event.target.value
+                    setDraft(current => {
+                      const next: ProviderPreferences = { ...current }
+                      if (value === '5m' || value === '1h') next.promptCacheTtl = value
+                      else delete next.promptCacheTtl
+                      return next
+                    })
+                  }}>
+                  <option value="">{tf(t, 'cacheLifetimeDefault', {
+                    value: loaded.promptCacheTtlDefault === 'auto'
+                      ? t('cacheLifetimeAuto')
+                      : loaded.promptCacheTtlDefault === '1h' ? t('cacheLifetime1h') : t('cacheLifetime5m'),
+                  })}</option>
+                  <option value="5m">{t('cacheLifetime5m')}</option>
+                  <option value="1h">{t('cacheLifetime1h')}</option>
+                </select>
+              </div>
+              <span className="dsm-note">{t('cacheLifetimeNote')}</span>
+            </>
+          )}
           <input className="dsm-input" value={search} placeholder={tf(t, 'searchModels', { count: models.length })} onChange={event => { setSearch(event.target.value) }} />
           <div className="dsm-row">
             <span className="dsm-grow">{t('autoShowNew')}</span>

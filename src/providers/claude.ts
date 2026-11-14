@@ -182,6 +182,28 @@ export const CLAUDE_BETA_FALLBACK = [
 
 const CLAUDE_BETA_FLAGS = CLAUDE_BETA_FALLBACK
 
+/** Anthropic's beta value for one-hour cache entries on the Messages API. */
+export const EXTENDED_CACHE_TTL_BETA = 'extended-cache-ttl-2025-04-11'
+
+/**
+ * Statuses that can carry a cache-feature rejection. A rejected beta may
+ * arrive as 400, 403 or 422 depending on the upstream check.
+ */
+const CACHE_TTL_REJECTION_STATUSES: ReadonlySet<number> = new Set([400, 403, 422])
+
+/** The API error text when a rejection names the cache TTL fields, else undefined. */
+async function oneHourRejection(response: Response): Promise<string | undefined> {
+  let text = ''
+  try {
+    text = await response.clone().text()
+  } catch {
+    return undefined
+  }
+  return /\bttl\b|cache[_ -]?control|extended-cache-ttl|anthropic-beta|prompt cache/i.test(text)
+    ? text.slice(0, 300)
+    : undefined
+}
+
 /** Static claude flow facts for the OAuth flow engine. */
 export const claudeFlow: FlowSpec = {
   callbackPath: CLAUDE_CALLBACK_PATH,
@@ -571,13 +593,14 @@ export interface ClaudeAdapterOptions {
   defaultEffortOf?: (model: string) => string | undefined
   /** Resolves the Claude Code version to present (npm-backed); absent means the local floor. */
   resolveCliVersion?: () => Promise<string>
-  /** Lifetime of the request's cache breakpoints; absent means Anthropic's five-minute default. */
+  /** Lifetime of main-conversation cache breakpoints when no override resolves; absent means five minutes. */
   promptCacheTtl?: PromptCacheTtl
   /**
-   * The user's Settings-page choice, read per request so a save applies to
-   * the next turn without a restart; undefined falls back to `promptCacheTtl`.
+   * The resolved TTL for one request, read per request so a settings change
+   * applies to the next turn without a restart. Receives the request's
+   * session id so the host can keep subagents on five minutes.
    */
-  promptCacheTtlOverride?: () => PromptCacheTtl | undefined
+  promptCacheTtlOverride?: (sessionId?: GenerateOptions['sessionId']) => PromptCacheTtl | undefined
 }
 
 /**
@@ -831,10 +854,19 @@ export class ClaudeAdapter extends LlmAdapter {
     try {
       const served = account ?? await this.options.tokens.defaultAccount()
       let session = await this.options.tokens.session(served)
-      let response = await this.request(options, session, watchdog.signal)
+      const cacheTtl = this.requestCacheTtl(options)
+      let response = await this.request(options, session, watchdog.signal, cacheTtl)
       if (response.status === 401) {
         session = await this.options.tokens.session(served, true)
-        response = await this.request(options, session, watchdog.signal)
+        response = await this.request(options, session, watchdog.signal, cacheTtl)
+      }
+      if (cacheTtl === '1h' && CACHE_TTL_REJECTION_STATUSES.has(response.status)) {
+        const rejection = await oneHourRejection(response)
+        if (rejection !== undefined) {
+          this.oneHourRejected = true
+          this.options.onWarn?.(`claude: one-hour prompt cache rejected, continuing with five minutes (${rejection})`)
+          response = await this.request(options, session, watchdog.signal)
+        }
       }
       if (served !== undefined) {
         this.options.onResponse?.(response, await this.options.tokens.resolveAccount(served), options.sessionId)
@@ -873,7 +905,22 @@ export class ClaudeAdapter extends LlmAdapter {
     return undefined
   }
 
-  private async request(options: GenerateOptions, session: ClaudeSession, signal: AbortSignal): Promise<Response> {
+  /** After the endpoint rejects a one-hour request, the rest of this process stays on five minutes. */
+  private oneHourRejected = false
+
+  /**
+   * The TTL this request should carry, or undefined for five minutes.
+   * Auxiliary requests always stay on five minutes, and a rejected one-hour
+   * request keeps the rest of the process there.
+   * @param options - the generate request.
+   * @returns the concrete TTL, or undefined for five minutes.
+   */
+  private requestCacheTtl(options: GenerateOptions): PromptCacheTtl | undefined {
+    if (options.purpose !== undefined || this.oneHourRejected) return undefined
+    return this.options.promptCacheTtlOverride?.(options.sessionId) ?? this.options.promptCacheTtl
+  }
+
+  private async request(options: GenerateOptions, session: ClaudeSession, signal: AbortSignal, cacheTtl?: PromptCacheTtl): Promise<Response> {
     const messages = await resolveImages(options.messages, this.options.resolveAttachments?.(), signal, CLAUDE_IMAGE_LIMIT)
     if (hostSupportsImageOffload()) {
       const offloadImages = requiredImageOffloadCount(messages, CLAUDE_REQUEST_IMAGE_BUDGET)
@@ -894,7 +941,6 @@ export class ClaudeAdapter extends LlmAdapter {
     const effort = options.reasoningEffort !== undefined && disc?.reasoning !== undefined
       ? String(options.reasoningEffort)
       : undefined
-    const cacheTtl = this.options.promptCacheTtlOverride?.() ?? this.options.promptCacheTtl
     const body = claudeRequestBody(options, messages, maxTokens, thinking, effort, cacheTtl)
     const cliVersion = await (this.options.resolveCliVersion ?? localClaudeCliVersion)()
     return proxiedFetch(CLAUDE_API_URL, {
@@ -902,7 +948,7 @@ export class ClaudeAdapter extends LlmAdapter {
       headers: {
         'authorization': `Bearer ${session.accessToken}`,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': CLAUDE_BETA_FLAGS,
+        'anthropic-beta': cacheTtl === '1h' ? `${CLAUDE_BETA_FLAGS},${EXTENDED_CACHE_TTL_BETA}` : CLAUDE_BETA_FLAGS,
         'user-agent': claudeCliUserAgent(cliVersion),
         'x-app': 'cli',
         'anthropic-dangerous-direct-browser-access': 'true',

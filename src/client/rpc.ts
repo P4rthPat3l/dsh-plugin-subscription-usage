@@ -7,7 +7,7 @@ import type { ConnectionHandle, RpcResult } from '@deepseek-ai/dsh-api-remotes/c
 import type { AccountStatus, ProviderStatus, ProviderAccountCatalog } from '../auth/rpc.js'
 import type { ProviderId } from '../auth/store.js'
 import type { KeyProviderId, KeyProviderView } from '../usage-providers/index.js'
-import type { ProviderPreferences, SubscriptionTool } from '../provider-settings.js'
+import type { ClaudePromptCacheTtlSetting, ProviderPreferences, SubscriptionTool } from '../provider-settings.js'
 import type { DisplayUsage, UsageReadReason } from '../usage/service.js'
 import type { ProxyConfigView, ProxyInput, ProxyTestResult } from '../http.js'
 
@@ -62,6 +62,8 @@ export interface ProviderSettingsValue {
   models: ProviderModelRow[]
   tools: readonly SubscriptionTool[]
   accounts: ProviderAccountCatalog[]
+  /** Claude only: the Config cache lifetime the "default" choice resolves to. */
+  promptCacheTtlDefault?: ClaudePromptCacheTtlSetting
 }
 
 /** The Host's business error text. */

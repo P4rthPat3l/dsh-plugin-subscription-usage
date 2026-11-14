@@ -791,9 +791,10 @@ test('claudeRequestBody keeps auxiliary calls (compaction, session titles) on fi
   assert.deepEqual(cacheMarkers(ordinary), Array(4).fill({ type: 'ephemeral', ttl: '1h' }), 'ordinary requests still get 1h')
 })
 
-test('the plugin Config accepts 5m and 1h for claudePromptCacheTtl, defaults to 5m, and rejects the rest', () => {
+test('the plugin Config accepts auto, 5m and 1h for claudePromptCacheTtl, defaults to auto, and rejects the rest', () => {
   const parse = Config as unknown as (value: unknown) => { claudePromptCacheTtl?: string }
-  assert.equal(parse({}).claudePromptCacheTtl, '5m')
+  assert.equal(parse({}).claudePromptCacheTtl, 'auto')
+  assert.equal(parse({ claudePromptCacheTtl: 'auto' }).claudePromptCacheTtl, 'auto')
   assert.equal(parse({ claudePromptCacheTtl: '5m' }).claudePromptCacheTtl, '5m')
   assert.equal(parse({ claudePromptCacheTtl: '1h' }).claudePromptCacheTtl, '1h')
   for (const invalid of ['2h', '1H', '60m', '', 3600, true]) {

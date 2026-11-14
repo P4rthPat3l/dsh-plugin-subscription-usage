@@ -78,7 +78,6 @@ import { AccountTokenManager } from './providers/accounts.js'
 import type { AccountAwareAdapter } from './providers/accounts.js'
 import { DEFAULT_RATE_LIMIT_MAX_WAIT_MS, resolveRateLimitWait } from './providers/rate-limit.js'
 import type { RateLimitConfig } from './providers/rate-limit.js'
-import { DEFAULT_PROMPT_CACHE_TTL } from './translate/anthropic.js'
 import type { PromptCacheTtl } from './translate/anthropic.js'
 import { accountCatalogStore, catalogStore } from './providers/catalog-store.js'
 import { ClaudeCliVersionCache } from './providers/claude-cli-version.js'
@@ -153,7 +152,16 @@ import { createVideoGenerateTool, videosDirectory } from './tools/video-generate
 import { KEY_ACCOUNT, isKeyProviderId, KeyStore, KeyUsage } from './usage-providers/index.js'
 import type { KeyProviderId, KeyProviderView, UsageProviderId } from './usage-providers/index.js'
 import { ensureConnectAttemptTimeout, proxiedFetch, proxyGetConfig, proxySetConfig, proxyTestConnection, restoreConnectAttemptTimeout } from './http.js'
-import { ProviderSettingsStore, PROVIDER_TOOLS, validatePreferences } from './provider-settings.js'
+import {
+  CLAUDE_PROMPT_CACHE_TTLS,
+  ProviderSettingsStore,
+  PROVIDER_TOOLS,
+  isClaudeSubagentSession,
+  readClaudePromptCacheTtl,
+  resolveClaudePromptCacheTtl,
+  validatePreferences,
+} from './provider-settings.js'
+import type { ClaudePromptCacheTtlSetting } from './provider-settings.js'
 import { ModelSpeeds } from './model-speeds.js'
 
 export type { ModelEntry, ProviderUsage, UsageWindow } from './providers/common.js'
@@ -181,12 +189,13 @@ export interface Config {
   streamIdleTimeoutMs?: number
   /**
    * How long Anthropic keeps the Claude conversation cache after its last use:
-   * `'5m'` (default, the API's own default) or `'1h'`. One hour writes cache
-   * entries at 2× the input price instead of 1.25×, and pays off when you
-   * regularly pause longer than five minutes between messages. Claude only;
-   * compaction and session-title requests always stay on five minutes.
+   * `'auto'` (default), `'5m'`, or `'1h'`. Auto follows Claude Code: one hour
+   * for the main conversation and five minutes for subagent and unknown
+   * sessions, plus every auxiliary request. One hour writes cache entries at 2× the input price
+   * instead of 1.25×, and pays off when you regularly pause longer than five
+   * minutes between messages. Claude only.
    */
-  claudePromptCacheTtl?: PromptCacheTtl
+  claudePromptCacheTtl?: ClaudePromptCacheTtlSetting
   /** Whether and how long a route waits out a closed rate-limit window. */
   rateLimit?: RateLimitConfig
   /** Advisory model catalogs overriding the built-in defaults, per provider. */
@@ -262,7 +271,7 @@ export const Config: z<Config> = z.object({
   providers: z.array(providerIdSchema).default(['codex', 'claude', 'grok', 'copilot', 'antigravity']),
   codexClientVersion: z.string(),
   streamIdleTimeoutMs: z.number().min(1).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
-  claudePromptCacheTtl: z.union(['5m', '1h']).default(DEFAULT_PROMPT_CACHE_TTL),
+  claudePromptCacheTtl: z.union([...CLAUDE_PROMPT_CACHE_TTLS]).default('auto'),
   rateLimit: z.object({
     wait: z.boolean().default(true),
     maxWaitMs: z.number().min(1).default(DEFAULT_RATE_LIMIT_MAX_WAIT_MS),
@@ -788,9 +797,17 @@ export function apply(ctx: Context, config: Config): void {
   }
   // The schema rejects anything else in the settings UI, but `apply` is also
   // called with a plain object (tests, `--patch` overlays), so check here too.
-  const claudePromptCacheTtl = config.claudePromptCacheTtl ?? DEFAULT_PROMPT_CACHE_TTL
-  if (claudePromptCacheTtl !== '5m' && claudePromptCacheTtl !== '1h') {
-    throw new Error(`${name}: claudePromptCacheTtl must be '5m' or '1h'`)
+  const claudePromptCacheTtl = readClaudePromptCacheTtl(config.claudePromptCacheTtl)
+  // Claude Code's two TTL buckets: the main conversation keeps one hour while
+  // delegated sessions and auxiliary requests stay on five minutes. The live
+  // agent registry carries the durable origin and delegation depth; a missing
+  // entry stays conservative at five minutes.
+  const claudeCacheTtlFor = (sessionId?: GenerateOptions['sessionId']): PromptCacheTtl => {
+    const preferred = preferences.promptCacheTtl()
+    if (preferred !== undefined) return preferred
+    if (claudePromptCacheTtl !== 'auto') return claudePromptCacheTtl
+    const agent = sessionId === undefined ? undefined : ctx.get('agents')?.get(sessionId)
+    return resolveClaudePromptCacheTtl('auto', isClaudeSubagentSession(agent?.session.header))
   }
   const rateLimit = resolveRateLimitWait(config.rateLimit, `${name}: rateLimit`)
   const catalog = resolveCatalog(config.models)
@@ -1051,8 +1068,7 @@ export function apply(ctx: Context, config: Config): void {
           accountCatalogStore: account => accountCatalogStore('claude', account),
           defaultEffortOf: (model: string) => defaultEffortOf('claude', model),
           resolveCliVersion: () => claudeVersion.resolve(),
-          promptCacheTtl: claudePromptCacheTtl,
-          promptCacheTtlOverride: () => preferences.promptCacheTtl(),
+          promptCacheTtlOverride: claudeCacheTtlFor,
           pool: () => poolAdapter,
         })
         adapters.set('claude', adapter)

@@ -13,9 +13,57 @@ export const PROVIDER_TOOLS = {
   antigravity: [],
 } as const
 export type SubscriptionTool = 'image_generate' | 'video_generate' | 'x_search' | 'web_search'
-/** Mirrors `PromptCacheTtl` in translate/anthropic.ts; kept here so the client bundle needs no translate import. */
+/** Per-provider override values. Mirrors `PromptCacheTtl` in translate/anthropic.ts; kept here so the client bundle needs no translate import. */
 export const PROMPT_CACHE_TTLS = ['5m', '1h'] as const
 export type PromptCacheTtlSetting = typeof PROMPT_CACHE_TTLS[number]
+/** Config values. `auto` picks one hour for main conversations and five minutes for everything else. */
+export const CLAUDE_PROMPT_CACHE_TTLS = ['auto', '5m', '1h'] as const
+export type ClaudePromptCacheTtlSetting = typeof CLAUDE_PROMPT_CACHE_TTLS[number]
+
+/**
+ * Resolve the Config choice to the concrete TTL one request carries.
+ *
+ * `auto` matches Claude Code's subscription behavior: the main conversation
+ * keeps one hour, while subagents and unknown sessions stay at five minutes
+ * so short-lived or unattributable work does not pay the one-hour write rate.
+ * @param setting - Config value.
+ * @param subagent - whether the request belongs to a delegated or unknown session.
+ * @returns the concrete TTL for this request.
+ */
+export function resolveClaudePromptCacheTtl(setting: ClaudePromptCacheTtlSetting, subagent: boolean): PromptCacheTtlSetting {
+  if (setting !== 'auto') return setting
+  return subagent ? '5m' : '1h'
+}
+
+/** The session-header fields that decide the cache bucket. */
+export interface ClaudeCacheBucketHeader {
+  readonly origin?: 'subagent'
+  readonly delegationDepth?: number
+}
+
+/**
+ * Whether a session belongs to the five-minute bucket. A missing header is
+ * conservative: an unattributable request stays on the cheaper TTL.
+ * @param header - the live agent's session header, when one exists.
+ * @returns true for subagents and unknown sessions.
+ */
+export function isClaudeSubagentSession(header: ClaudeCacheBucketHeader | undefined): boolean {
+  if (header === undefined) return true
+  return header.origin === 'subagent' || (header.delegationDepth ?? 0) > 0
+}
+
+/**
+ * Read the Config field, accepting only the three documented values. Kept
+ * separate from the schema so `apply` rejects a plain-object overlay before
+ * any adapter is registered.
+ * @param value - raw Config value.
+ * @returns the validated value, defaulting to `auto`.
+ */
+export function readClaudePromptCacheTtl(value: unknown): ClaudePromptCacheTtlSetting {
+  if (value === undefined) return 'auto'
+  if ((CLAUDE_PROMPT_CACHE_TTLS as readonly unknown[]).includes(value)) return value as ClaudePromptCacheTtlSetting
+  throw new Error(`claudePromptCacheTtl must be one of ${CLAUDE_PROMPT_CACHE_TTLS.join(', ')}`)
+}
 export type SubagentSpeedTier = 'standard' | 'fast'
 export interface AccountPreferences {
   alias?: string
